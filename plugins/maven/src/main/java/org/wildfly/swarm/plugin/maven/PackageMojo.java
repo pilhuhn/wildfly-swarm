@@ -16,11 +16,7 @@
 package org.wildfly.swarm.plugin.maven;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
-import java.util.Set;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
@@ -37,7 +33,8 @@ import org.wildfly.swarm.fractions.FractionList;
 import org.wildfly.swarm.spi.meta.SimpleLogger;
 import org.wildfly.swarm.tools.ArtifactSpec;
 import org.wildfly.swarm.tools.BuildTool;
-import org.wildfly.swarm.tools.DeclaredDependencies;
+import org.wildfly.swarm.tools.maven.ArtifactHelper;
+import org.wildfly.swarm.tools.maven.MavenProjectHelper;
 
 /**
  * @author Bob McWhirter
@@ -75,21 +72,6 @@ public class PackageMojo extends AbstractSwarmMojo {
     @Parameter(alias = "skip", defaultValue = "false", property = "swarm.package.skip")
     protected boolean skip;
 
-    protected File divineFile() {
-        if (this.project.getArtifact().getFile() != null) {
-            return this.project.getArtifact().getFile();
-        }
-
-        String finalName = this.project.getBuild().getFinalName();
-
-        Path candidate = Paths.get(this.projectBuildDir, finalName + "." + this.project.getPackaging());
-
-        if (Files.exists(candidate)) {
-            return candidate.toFile();
-        }
-        return null;
-    }
-
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -97,32 +79,37 @@ public class PackageMojo extends AbstractSwarmMojo {
             getLog().info("Skipping packaging");
             return;
         }
+
+        if (System.getenv("MAVEN_CMD_LINE_ARGS").contains("wildfly-swarm:run")) {
+            getLog().info("Skip packaging of WildFly Swarm jar as executing `wildfly-swarm:run`.");
+            return;
+        }
+
         if (this.project.getPackaging().equals("pom")) {
             getLog().info("Not processing project with pom packaging");
             return;
         }
+
         initProperties(false);
         final Artifact primaryArtifact = this.project.getArtifact();
         final String finalName = this.project.getBuild().getFinalName();
         final String type = primaryArtifact.getType();
 
-        final File primaryArtifactFile = divineFile();
+        final File primaryArtifactFile = ArtifactHelper.artifactFile(this.project);
 
         if (primaryArtifactFile == null) {
             throw new MojoExecutionException("Cannot package without a primary artifact; please `mvn package` prior to invoking wildfly-swarm:package from the command-line");
         }
 
-        final DeclaredDependencies declaredDependencies = new DeclaredDependencies();
-
-        final BuildTool tool = new BuildTool(mavenArtifactResolvingHelper())
+        final BuildTool tool = new BuildTool(mavenArtifactResolvingHelper(), new MavenProjectHelper(project, mavenHelper()))
                 .projectArtifact(primaryArtifact.getGroupId(),
-                        primaryArtifact.getArtifactId(),
-                        primaryArtifact.getBaseVersion(),
-                        type,
-                        primaryArtifactFile,
-                        finalName.endsWith("." + type) ?
-                                finalName :
-                                String.format("%s.%s", finalName, type))
+                                 primaryArtifact.getArtifactId(),
+                                 primaryArtifact.getBaseVersion(),
+                                 type,
+                                 primaryArtifactFile,
+                                 finalName.endsWith("." + type) ?
+                                         finalName :
+                                         String.format("%s.%s", finalName, type))
                 .properties(this.properties)
                 .mainClass(this.mainClass)
                 .bundleDependencies(this.bundleDependencies)
@@ -156,30 +143,6 @@ public class PackageMojo extends AbstractSwarmMojo {
                 .map(f -> FractionDescriptor.fromGav(FractionList.get(), f))
                 .map(ArtifactSpec::fromFractionDescriptor)
                 .forEach(tool::fraction);
-
-        Map<ArtifactSpec, Set<ArtifactSpec>> buckets = createBuckets(this.project.getArtifacts(), this.project.getDependencies());
-
-        for (ArtifactSpec directDep : buckets.keySet()) {
-
-            if (!(directDep.scope.equals("compile") || directDep.scope.equals("runtime"))) {
-                continue; // ignore anything but compile and runtime
-            }
-
-            Set<ArtifactSpec> transientDeps = buckets.get(directDep);
-            if (transientDeps.isEmpty()) {
-                declaredDependencies.add(directDep);
-            } else {
-                for (ArtifactSpec transientDep : transientDeps) {
-                    declaredDependencies.add(directDep, transientDep);
-                }
-            }
-        }
-
-        tool.declaredDependencies(declaredDependencies);
-
-        this.project.getResources()
-                .forEach(r -> tool.resourceDirectory(r.getDirectory()));
-
 
         this.additionalModules.stream()
                 .map(m -> new File(this.project.getBuild().getOutputDirectory(), m))
