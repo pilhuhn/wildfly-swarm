@@ -61,7 +61,6 @@ public class MetricsService implements Service<MetricsService> {
    */
   private void initBaseAndVendorConfiguration() {
     InputStream is  = getClass().getResourceAsStream("mapping.yml");
-    LOG.warn("IS is " + is);
 
     if (is != null) {
       ConfigReader cr = new ConfigReader();
@@ -77,7 +76,6 @@ public class MetricsService implements Service<MetricsService> {
       for (ExtendedMetadata em : ml.getBase()) {
         em.processTags(globalTags);
         Metric type = getType(em);
-        LOG.info("+++ registering " + em);
         MetricRegistryFactory.getBaseRegistry().register(em.getName(),type,em);
       }
       for (ExtendedMetadata em : ml.getVendor()) {

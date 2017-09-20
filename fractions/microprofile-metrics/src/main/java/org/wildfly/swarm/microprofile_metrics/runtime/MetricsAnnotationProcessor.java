@@ -46,7 +46,7 @@ import org.wildfly.swarm.spi.runtime.annotations.DeploymentScoped;
 @DeploymentScoped
 public class MetricsAnnotationProcessor implements DeploymentProcessor {
 
-  private static Logger LOG = Logger.getLogger("org.wildfly.swarm.microprofile");
+  private static Logger LOG = Logger.getLogger("org.wildfly.swarm.microprofile.metrics");
 
   private static final String ANNOTATION_BASE_PACKAGE = "org.eclipse.microprofile.metrics.annotation.";
   private String[] annotations = {"Gauge", "Counted", "Metered", "Metric", "Timed"};
@@ -64,13 +64,10 @@ public class MetricsAnnotationProcessor implements DeploymentProcessor {
   public MetricsAnnotationProcessor(Archive archive, IndexView index) {
     this.archive = archive;
     this.index = index;
-    LOG.warn("+++ Deployment processor +++");
   }
 
   @Override
   public void process() throws NamingException {
-
-    LOG.warn("+++ found archive " + archive.getName());
 
     for (String annotation : annotations) {
       processAnnotations(annotation);
@@ -133,9 +130,6 @@ public class MetricsAnnotationProcessor implements DeploymentProcessor {
         m = getMetricInstanceFromType(type);
         metadata = new Metadata(name,getMetricType(type));
       }
-
-      LOG.info("+++ registered " + name + " of type " + type);
-
 
       if (unit != null) {
         metadata.setUnit(unit);
