@@ -30,6 +30,7 @@ public class ExtendedMetadata extends Metadata {
 
     private String mbean;
     boolean multi;
+    boolean arrayHistogram;
 
     public ExtendedMetadata() {
         super("-dummy-", MetricType.INVALID);
@@ -41,6 +42,13 @@ public class ExtendedMetadata extends Metadata {
 
     public ExtendedMetadata(String name, String displayName, String description, MetricType typeRaw, String unit) {
         super(name, displayName, description, typeRaw, unit);
+    }
+
+    public ExtendedMetadata(ExtendedMetadata old) {
+        super(old.getName(),old.getDisplayName(),old.getDescription(),old.getTypeRaw(),old.getUnit());
+        setMbean(old.getMbean());
+        setArrayHistogram(old.arrayHistogram);
+
     }
 
     public String getMbean() {
@@ -57,6 +65,14 @@ public class ExtendedMetadata extends Metadata {
 
     public void setMulti(boolean multi) {
         this.multi = multi;
+    }
+
+    public boolean isArrayHistogram() {
+        return arrayHistogram;
+    }
+
+    public void setArrayHistogram(boolean arrayHistogram) {
+        this.arrayHistogram = arrayHistogram;
     }
 
     public void setLabels(List<Tag> in) {

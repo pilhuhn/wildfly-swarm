@@ -18,6 +18,7 @@ package org.wildfly.swarm.microprofile_metrics.runtime;
 
 import org.eclipse.microprofile.metrics.Metadata;
 import org.eclipse.microprofile.metrics.MetricRegistry;
+import org.eclipse.microprofile.metrics.MetricType;
 import org.jboss.logging.Logger;
 
 import javax.management.MBeanServer;
@@ -64,8 +65,13 @@ public class JmxWorker {
                 throw new IllegalStateException("Not extended Metadata " + m);
             }
             ExtendedMetadata em = (ExtendedMetadata) m;
-            Double val = getValue(em.getMbean()).doubleValue();
-            outcome.put(em.getName(), val);
+
+            if (em.getTypeRaw().equals(MetricType.HISTOGRAM)) {
+                System.err.println(MetricRegistryFactory.getBaseRegistry().histogram(em.getName()));
+            } else {
+                Double val = getValue(em.getMbean()).doubleValue();
+                outcome.put(em.getName(), val);
+            }
         }
         return outcome;
     }
@@ -171,6 +177,46 @@ public class JmxWorker {
         entries.removeAll(toBeRemoved);
         entries.addAll(result);
         LOG.info("Converted [" + toBeRemoved.size() + "] config entries and added [" + result.size() + "] replacements");
+    }
+
+    void setUpGCHistory(List<ExtendedMetadata> entries) {
+        List<ExtendedMetadata> result = new ArrayList<>();
+
+        MetricRegistry baseRegistry = MetricRegistryFactory.getBaseRegistry();
+
+        for (ExtendedMetadata entry : entries) {
+            if (!entry.getName().startsWith("gc.")) {
+                continue;
+            }
+
+            if (!isMajorGc(entry.getName())) {
+                continue;
+            }
+
+            ExtendedMetadata newMetadata = new ExtendedMetadata(entry);
+            newMetadata.setType(MetricType.HISTOGRAM);
+            newMetadata.setName(newMetadata.getName() + ".histogram");
+            newMetadata.setArrayHistogram(true);
+
+            ((MetricsRegistryImpl)baseRegistry).timeArray(newMetadata);
+        }
+    }
+
+    private boolean isMajorGc(String nameIn) {
+        String name = nameIn.substring(3);
+        int dot = name.indexOf(".");
+        name = name.substring(0,dot);
+
+        switch (name) {
+
+            case "PS MarkSweep":
+            case "ConcurrentMarkSweep":
+            case "G1 Old Generation":
+            case "MarkSweepCompact":
+                return true;
+            default:
+                return false;
+        }
     }
 
     private String findKeyForValueToBeReplaced(ObjectName objectName) {

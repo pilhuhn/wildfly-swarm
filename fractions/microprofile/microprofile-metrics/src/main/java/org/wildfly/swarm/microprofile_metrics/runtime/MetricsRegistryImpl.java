@@ -16,6 +16,7 @@
  */
 package org.wildfly.swarm.microprofile_metrics.runtime;
 
+import java.util.concurrent.TimeUnit;
 import org.eclipse.microprofile.metrics.Counter;
 import org.eclipse.microprofile.metrics.Gauge;
 import org.eclipse.microprofile.metrics.Histogram;
@@ -110,6 +111,15 @@ public class MetricsRegistryImpl extends MetricRegistry {
     @Override
     public Histogram histogram(Metadata metadata) {
         return get(metadata, MetricType.HISTOGRAM);
+    }
+
+    public Histogram timeArray(Metadata metadata) {
+        String name = metadata.getName();
+        if (!metadataMap.containsKey(name)) {
+            Metric m = new HistogramImpl(new SlidingTimeWindowArrayReservoir(2, TimeUnit.MINUTES));
+            register(name,m,metadata);
+        }
+        return (Histogram) metricMap.get(name);
     }
 
     @Override
@@ -250,7 +260,10 @@ public class MetricsRegistryImpl extends MetricRegistry {
         while (iterator.hasNext()) {
             Map.Entry<String, Metric> entry = iterator.next();
             if (filter.matches(entry.getKey(), entry.getValue())) {
-                out.put(entry.getKey(), (T) entry.getValue());
+                // We have a name match - now check the type too
+                if (type.equals(metadataMap.get(entry.getKey()).getTypeRaw())) {
+                    out.put(entry.getKey(), (T) entry.getValue());
+                }
             }
         }
 

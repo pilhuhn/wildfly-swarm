@@ -25,8 +25,10 @@ import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.eclipse.microprofile.metrics.MetricType;
 import org.eclipse.microprofile.metrics.MetricUnits;
 import org.eclipse.microprofile.metrics.Snapshot;
+import org.wildfly.swarm.microprofile_metrics.runtime.ExtendedMetadata;
 import org.wildfly.swarm.microprofile_metrics.runtime.MetricRegistryFactory;
 import org.wildfly.swarm.microprofile_metrics.runtime.Tag;
+import org.wildfly.swarm.microprofile_metrics.runtime.UniformSnapshot;
 import org.wildfly.swarm.microprofile_metrics.runtime.app.HistogramImpl;
 import org.wildfly.swarm.microprofile_metrics.runtime.app.MeterImpl;
 import org.wildfly.swarm.microprofile_metrics.runtime.app.TimerImpl;
@@ -126,7 +128,11 @@ public class PrometheusExporter implements Exporter {
                     break;
                 case HISTOGRAM:
                     HistogramImpl histogram = (HistogramImpl) metric;
-                    writeHistogramValues(sb, scope, histogram, md);
+                    if (((ExtendedMetadata)md).isArrayHistogram()) {
+                        writeArrayHistogramValues(sb, scope, histogram, md);
+                    } else {
+                        writeHistogramValues(sb, scope, histogram, md);
+                    }
                     break;
                 default:
                     throw new IllegalArgumentException("Not supported: " + key);
@@ -165,6 +171,27 @@ public class PrometheusExporter implements Exporter {
         writeTypeLine(sb,scope,md.getName(),md, theUnit,SUMMARY);
         writeValueLine(sb,scope,theUnit + "_count",histogram.getCount(),md);
         writeSnapshotQuantiles(sb, scope, md, snapshot, theUnit);
+    }
+
+    private void writeArrayHistogramValues(StringBuilder sb, MetricRegistry.Type scope, HistogramImpl histogram,
+                                           Metadata md) {
+
+        Snapshot snapshot = histogram.getSnapshot();
+        String unit = md.getUnit();
+        unit = PrometheusUnit.getBaseUnitAsPrometheusString(unit);
+
+        String theUnit = unit.equals("none") ? "" : USCORE + unit;
+
+        writeSnapshotBasics(sb, scope, md, snapshot, theUnit);
+        writeTypeLine(sb,scope,md.getName(),md, theUnit,SUMMARY);
+        writeValueLine(sb,scope,theUnit + "_count",histogram.getCount(),md);
+        UniformSnapshot us = (UniformSnapshot)snapshot;
+        for (int i = 1; i <= 10; i++) {
+            double quantile = i / 10.0d;
+            int numSeconds = 120 - i * 12; // we have the buckets for 2 minutes. See org.wildfly.swarm
+            // .microprofile_metrics.runtime.MetricsRegistryImpl.timeArray()
+            writeValueLine(sb, scope, "", us.getValue(quantile), md, new Tag("last_sec", String.valueOf(numSeconds)));
+        }
     }
 
 

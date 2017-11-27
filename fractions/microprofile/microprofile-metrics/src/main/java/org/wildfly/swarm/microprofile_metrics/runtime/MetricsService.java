@@ -16,6 +16,11 @@
  */
 package org.wildfly.swarm.microprofile_metrics.runtime;
 
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.eclipse.microprofile.metrics.Metric;
 import org.jboss.as.controller.ModelController;
 import org.jboss.as.server.ServerEnvironment;
@@ -30,10 +35,6 @@ import org.jboss.msc.value.InjectedValue;
 import org.wildfly.swarm.microprofile_metrics.runtime.mbean.MCounterImpl;
 import org.wildfly.swarm.microprofile_metrics.runtime.mbean.MGaugeImpl;
 
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * @author Heiko W. Rupp
  */
@@ -46,13 +47,27 @@ public class MetricsService implements Service<MetricsService> {
     private final InjectedValue<ServerEnvironment> serverEnvironmentValue = new InjectedValue<ServerEnvironment>();
     private final InjectedValue<ModelController> modelControllerValue = new InjectedValue<ModelController>();
 
+    private ScheduledThreadPoolExecutor executorService;
 
     @Override
     public void start(StartContext context) throws StartException {
         initBaseAndVendorConfiguration();
 
+
         LOG.info("MicroProfile-Metrics started");
+
+        executorService = new ScheduledThreadPoolExecutor(1);
+
+        executorService.scheduleAtFixedRate(new PeriodicGCReader(), 5,10, TimeUnit.SECONDS);
     }
+
+    @Override
+    public void stop(StopContext stopContext) {
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
+    }
+
 
     /**
      * Read a list of mappings that contains the base and vendor metrics
@@ -83,6 +98,9 @@ public class MetricsService implements Service<MetricsService> {
                 Metric type = getType(em);
                 MetricRegistryFactory.getVendorRegistry().register(em.getName(), type, em);
             }
+
+            JmxWorker.instance().setUpGCHistory(ml.getBase());
+
         } else {
             throw new IllegalStateException("Was not able to find the mapping file 'mapping.yml'");
         }
@@ -112,10 +130,6 @@ public class MetricsService implements Service<MetricsService> {
             }
         }
         return tags;
-    }
-
-    @Override
-    public void stop(StopContext context) {
     }
 
     @Override
