@@ -20,6 +20,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.metrics.Metric;
@@ -33,8 +36,8 @@ import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
 import org.jboss.msc.value.InjectedValue;
-import org.wildfly.swarm.microprofile.metrics.runtime.mbean.MGaugeImpl;
 import org.wildfly.swarm.microprofile.metrics.runtime.mbean.MCounterImpl;
+import org.wildfly.swarm.microprofile.metrics.runtime.mbean.MGaugeImpl;
 
 /**
  * @author Heiko W. Rupp
@@ -47,14 +50,23 @@ public class MetricsService implements Service<MetricsService> {
 
     private final InjectedValue<ServerEnvironment> serverEnvironmentValue = new InjectedValue<ServerEnvironment>();
     private final InjectedValue<ModelController> modelControllerValue = new InjectedValue<ModelController>();
+    private ScheduledExecutorService executorService;
 
 
     @Override
     public void start(StartContext context) throws StartException {
         initBaseAndVendorConfiguration();
+        startParallelCounterWatermarkFiller();
 
         LOG.info("MicroProfile-Metrics started");
     }
+
+
+    private void startParallelCounterWatermarkFiller() {
+        executorService = new ScheduledThreadPoolExecutor(1);
+        executorService.scheduleAtFixedRate(new ParallelCounterWatermarkFiller(), 1, 1, TimeUnit.MINUTES);
+    }
+
 
     /**
      * Read a list of mappings that contains the base and vendor metrics

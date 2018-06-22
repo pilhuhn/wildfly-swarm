@@ -17,9 +17,11 @@
 
 package org.wildfly.swarm.microprofile.metrics.runtime.exporters;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
@@ -31,6 +33,7 @@ import org.eclipse.microprofile.metrics.Metric;
 import org.eclipse.microprofile.metrics.MetricRegistry;
 import org.eclipse.microprofile.metrics.MetricType;
 import org.eclipse.microprofile.metrics.MetricUnits;
+import org.eclipse.microprofile.metrics.ParallelCounter;
 import org.eclipse.microprofile.metrics.Snapshot;
 import org.jboss.logging.Logger;
 import org.wildfly.swarm.microprofile.metrics.runtime.MetricRegistries;
@@ -126,8 +129,8 @@ public class PrometheusExporter implements Exporter {
             switch (md.getTypeRaw()) {
                 case GAUGE:
                 case COUNTER:
-                case HIT_COUNTER:    // TODO add label
-                case PARALLEL_COUNTER:  // TODO add label
+                case HIT_COUNTER:
+                case PARALLEL_COUNTER:
                     key = getPrometheusMetricName(md, key);
                     String suffix = null;
                     Optional<String> optUnit = md.getUnit();
@@ -143,6 +146,14 @@ public class PrometheusExporter implements Exporter {
                         typeTag = new Tag("_ctype","parallel_counter");
                     }
                     createSimpleValueLine(sb, scope, key, md, metric, typeTag);
+                    if (md.getTypeRaw().equals(MetricType.PARALLEL_COUNTER)) {
+                        ParallelCounter pc = ((ParallelCounter)metric);
+                        writeValueLine(sb, scope, "_max", pc.getMax(), md, true, typeTag);
+                        for (int i = 0; i < 10; i++) {
+                            writeValueLine(sb, scope, "_max", pc.maxLast10Minutes()[i], md, true, typeTag, new Tag
+                                ("ago",String.valueOf(i)));
+                        }
+                    }
                     break;
                 case METERED:
                     MeterImpl meter = (MeterImpl) metric;
@@ -181,7 +192,7 @@ public class PrometheusExporter implements Exporter {
         String suffix = USCORE + PrometheusUnit.getBaseUnitAsPrometheusString(unit);
         writeHelpLine(sb, scope, md.getName(), md, suffix);
         writeTypeLine(sb,scope,md.getName(),md, suffix,SUMMARY);
-        writeValueLine(sb,scope,suffix + "_count",timer.getCount(),md, null, false);
+        writeValueLine(sb, scope, suffix + "_count", timer.getCount(), md, false);
 
         writeSnapshotQuantiles(sb, scope, md, snapshot, theUnit);
     }
@@ -201,7 +212,7 @@ public class PrometheusExporter implements Exporter {
         writeHelpLine(sb, scope, md.getName(), md, SUMMARY);
         writeSnapshotBasics(sb, scope, md, snapshot, theUnit);
         writeTypeLine(sb,scope,md.getName(),md, theUnit,SUMMARY);
-        writeValueLine(sb,scope,theUnit + "_count",histogram.getCount(),md, null, false);
+        writeValueLine(sb, scope, theUnit + "_count", histogram.getCount(), md, false);
         writeSnapshotQuantiles(sb, scope, md, snapshot, theUnit);
     }
 
@@ -247,7 +258,7 @@ public class PrometheusExporter implements Exporter {
     }
 
     private void writeValueLine(StringBuilder sb, MetricRegistry.Type scope, String suffix, double valueRaw, Metadata md, Tag extraTag) {
-        writeValueLine(sb, scope, suffix, valueRaw, md, extraTag, true);
+        writeValueLine(sb, scope, suffix, valueRaw, md, true, extraTag);
     }
 
     private void writeValueLine(StringBuilder sb,
@@ -255,8 +266,7 @@ public class PrometheusExporter implements Exporter {
                                 String suffix,
                                 double valueRaw,
                                 Metadata md,
-                                Tag extraTag,
-                                boolean scaled) {
+                                boolean scaled, Tag... extraTags) {
         String name = md.getName();
         name = getPrometheusMetricName(md, name);
         fillBaseName(sb, scope, name);
@@ -266,8 +276,8 @@ public class PrometheusExporter implements Exporter {
         // add tags
 
         Map<String, String> tags = new HashMap<>(md.getTags());
-        if (extraTag != null) {
-            tags.put(extraTag.getKey(), extraTag.getValue());
+        if (extraTags != null) {
+            Arrays.stream(extraTags).filter(Objects::nonNull).forEach(t -> tags.put(t.getKey(), t.getValue()));
         }
         if (!tags.isEmpty()) {
             addTags(sb, tags);

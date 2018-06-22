@@ -33,27 +33,36 @@ package org.wildfly.swarm.microprofile.metrics.runtime.app;
 
 import java.util.concurrent.atomic.LongAdder;
 import org.eclipse.microprofile.metrics.Counter;
-import org.eclipse.microprofile.metrics.HitCounter;
+import org.eclipse.microprofile.metrics.ParallelCounter;
 
 /**
  * @author hrupp
  */
-public class CounterImpl implements Counter, HitCounter {
+public class ParallelCounterImpl implements ParallelCounter, Counter {
 
     private final LongAdder count;
+    private long max;
+    private long[] lastLong = new long[10];
 
-    public CounterImpl() {
+    public ParallelCounterImpl() {
         count = new LongAdder();
+        max = 0;
     }
 
     @Override
     public void inc() {
         count.increment();
+        if (count.longValue() > max) {
+            max = count.longValue();
+        }
     }
 
     @Override
     public void inc(long n) {
         count.add(n);
+        if (count.longValue() > max) {
+            max = count.longValue();
+        }
     }
 
     @Override
@@ -69,5 +78,26 @@ public class CounterImpl implements Counter, HitCounter {
     @Override
     public long getCount() {
         return count.sum();
+    }
+
+    @Override
+    public long getMax() {
+        return max;
+    }
+
+    @Override
+    public void resetMax() {
+        max = 0;
+    }
+
+    @Override
+    public long[] maxLast10Minutes() {
+        return lastLong;
+    }
+
+    public void moveItemsAndReset() {
+        System.arraycopy(lastLong, 0, lastLong, 1, 9);
+        lastLong[0] = max;
+        max = 0;
     }
 }

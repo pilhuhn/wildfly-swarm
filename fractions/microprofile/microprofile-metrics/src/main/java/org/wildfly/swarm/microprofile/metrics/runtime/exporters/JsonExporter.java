@@ -23,6 +23,7 @@ import org.eclipse.microprofile.metrics.Metadata;
 import org.eclipse.microprofile.metrics.Metered;
 import org.eclipse.microprofile.metrics.Metric;
 import org.eclipse.microprofile.metrics.MetricRegistry;
+import org.eclipse.microprofile.metrics.ParallelCounter;
 import org.eclipse.microprofile.metrics.Snapshot;
 import org.jboss.logging.Logger;
 import org.wildfly.swarm.microprofile.metrics.runtime.app.HistogramImpl;
@@ -39,6 +40,8 @@ import java.util.Map;
  */
 public class JsonExporter implements Exporter {
 
+    private static final String SPACED_COLON = " : ";
+    private static final String SPACE2 = "  ";
     private static Logger LOG = Logger.getLogger("org.wildfly.swarm.microprofile.metrics");
 
     private static final String COMMA_LF = ",\n";
@@ -84,9 +87,18 @@ public class JsonExporter implements Exporter {
                 case GAUGE:
                 case COUNTER:
                 case HIT_COUNTER:
-                case PARALLEL_COUNTER:
                     Number val = getValueFromMetric(value, key);
-                    sb.append("  ").append('"').append(key).append('"').append(" : ").append(val);
+                    sb.append(SPACE2).append('"').append(key).append('"').append(SPACED_COLON).append(val);
+                    break;
+                case PARALLEL_COUNTER:
+                    val = getValueFromMetric(value, key);
+                    sb.append(SPACE2).append('"').append(key).append('"').append(SPACED_COLON).append(val);
+                    sb.append(COMMA_LF);
+                    ParallelCounter parallelCounter = (ParallelCounter) value;
+                    val = parallelCounter.getMax();
+                    parallelCounter.resetMax();  // TODO do via timer not on fetching
+                    sb.append(SPACE2).append('"').append(key).append(".max").append('"').append(SPACED_COLON)
+                        .append(val);
                     break;
                 case METERED:
                     MeterImpl meter = (MeterImpl) value;
@@ -123,7 +135,7 @@ public class JsonExporter implements Exporter {
     }
 
     private void writeStartLine(StringBuilder sb, String key) {
-        sb.append("  ").append('"').append(key).append('"').append(" : ").append("{\n");
+        sb.append(SPACE2).append('"').append(key).append('"').append(SPACED_COLON).append("{\n");
     }
 
     private void writeMeterValues(StringBuilder sb, Metered meter) {

@@ -48,7 +48,7 @@ class MetricsMetadata {
             Metadata metadata = getMetadata(hitCountedOf.metricName(), t.unit(),t.description(),t.displayName(),
                                             MetricType.HIT_COUNTER, t.tags());
 
-            registry.counter(metadata);
+            registry.hitCounter(metadata);
         }
 
         MetricResolver.Of<ParallelCounted> parallelCountedOf = resolver.parallelCounted(bean, element);
@@ -57,7 +57,7 @@ class MetricsMetadata {
             Metadata metadata = getMetadata(parallelCountedOf.metricName(), t.unit(),t.description(),t.displayName(),
                                             MetricType.PARALLEL_COUNTER, t.tags());
 
-            registry.counter(metadata);
+            registry.parallelCounter(metadata);
         }
 
         MetricResolver.Of<Metered> metered = resolver.metered(bean, element);

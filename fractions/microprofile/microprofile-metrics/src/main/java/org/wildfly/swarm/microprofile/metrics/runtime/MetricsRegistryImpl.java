@@ -44,6 +44,7 @@ import org.wildfly.swarm.microprofile.metrics.runtime.app.CounterImpl;
 import org.wildfly.swarm.microprofile.metrics.runtime.app.ExponentiallyDecayingReservoir;
 import org.wildfly.swarm.microprofile.metrics.runtime.app.HistogramImpl;
 import org.wildfly.swarm.microprofile.metrics.runtime.app.MeterImpl;
+import org.wildfly.swarm.microprofile.metrics.runtime.app.ParallelCounterImpl;
 import org.wildfly.swarm.microprofile.metrics.runtime.app.TimerImpl;
 
 /**
@@ -203,8 +204,10 @@ public class MetricsRegistryImpl extends MetricRegistry {
             Metric m;
             switch (type) {
 
-                case HIT_COUNTER:       // TODO different impl? -> not needed yet!
                 case PARALLEL_COUNTER:
+                    m = new ParallelCounterImpl();
+                    break;
+                case HIT_COUNTER:       // TODO different impl? -> not needed yet!
                 case COUNTER:
                     m = new CounterImpl();
                     break;
