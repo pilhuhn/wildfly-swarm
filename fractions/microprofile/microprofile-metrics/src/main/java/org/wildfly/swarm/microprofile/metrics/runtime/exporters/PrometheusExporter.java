@@ -337,7 +337,7 @@ public class PrometheusExporter implements Exporter {
         } else if (md.getTypeRaw().equals(MetricType.METERED)) {
             sb.append(COUNTER);
         } else if (md.getTypeRaw().equals(MetricType.PARALLEL_COUNTER)) {
-            sb.append(COUNTER);
+            sb.append(GAUGE);
         } else if (md.getTypeRaw().equals(MetricType.HIT_COUNTER)) {
             sb.append(COUNTER);
         } else {
