@@ -42,7 +42,6 @@ public class ParallelCounterImpl implements ParallelCounter, Counter {
 
     private final LongAdder count;
     private long max;
-    private long[] lastLong = new long[10];
 
     public ParallelCounterImpl() {
         count = new LongAdder();
@@ -81,23 +80,13 @@ public class ParallelCounterImpl implements ParallelCounter, Counter {
     }
 
     @Override
-    public long getMax() {
+    public long getRecentPeak() {
         return max;
     }
 
     @Override
-    public void resetMax() {
+    public void resetRecentPeak() {
         max = 0;
     }
 
-    @Override
-    public long[] maxLast10Minutes() {
-        return lastLong;
-    }
-
-    public void moveItemsAndReset() {
-        System.arraycopy(lastLong, 0, lastLong, 1, 9);
-        lastLong[0] = max;
-        max = 0;
-    }
 }

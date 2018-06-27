@@ -52,6 +52,7 @@ public class PrometheusExporter implements Exporter {
     // This allows to suppress the (noisy) # HELP line
     private static final String SWARM_MICROPROFILE_METRICS_OMIT_HELP_LINE = "swarm.microprofile.metrics.omitHelpLine";
     private static final String NONE = "none";
+    private static final String UNDERSCORE_TOTAL = "_total";
 
     private static Logger LOG = Logger.getLogger("org.wildfly.swarm.microprofile.metrics");
 
@@ -137,22 +138,23 @@ public class PrometheusExporter implements Exporter {
                     if (optUnit.isPresent() && !optUnit.get().equals(MetricUnits.NONE)) {
                         suffix = USCORE + PrometheusUnit.getBaseUnitAsPrometheusString(optUnit.get());
                     }
+                    if (md.getTypeRaw().equals(MetricType.PARALLEL_COUNTER)) {
+                        key = key + "_activecount";
+                    }
+                    if (md.getTypeRaw().equals(MetricType.HIT_COUNTER) && !key.endsWith(UNDERSCORE_TOTAL)) {
+                        key = key + UNDERSCORE_TOTAL;
+
+                    }
+
+
                     writeHelpLine(sb, scope, key, md, suffix);
                     writeTypeLine(sb, scope, key, md, suffix, null);
                     Tag typeTag = null;
-                    if (md.getTypeRaw().equals(MetricType.HIT_COUNTER)) {
-                        typeTag = new Tag("_ctype","hit_counter");
-                    } else if (md.getTypeRaw().equals(MetricType.PARALLEL_COUNTER)) {
-                        typeTag = new Tag("_ctype","parallel_counter");
-                    }
                     createSimpleValueLine(sb, scope, key, md, metric, typeTag);
                     if (md.getTypeRaw().equals(MetricType.PARALLEL_COUNTER)) {
                         ParallelCounter pc = ((ParallelCounter)metric);
-                        writeValueLine(sb, scope, "_max", pc.getMax(), md, true, typeTag);
-                        for (int i = 0; i < 10; i++) {
-                            writeValueLine(sb, scope, "_max", pc.maxLast10Minutes()[i], md, true, typeTag, new Tag
-                                ("ago",String.valueOf(i)));
-                        }
+                        writeTypeLine(sb, scope, key + "_recent_peak", md, suffix, null);
+                        writeValueLine(sb, scope, "_activecount_recent_peak", pc.getRecentPeak(), md, true, typeTag);
                     }
                     break;
                 case METERED:
@@ -235,8 +237,8 @@ public class PrometheusExporter implements Exporter {
     }
 
     private void writeMeterValues(StringBuilder sb, MetricRegistry.Type scope, Metered metric, Metadata md) {
-        writeHelpLine(sb, scope, md.getName(), md, "_total");
-        writeTypeAndValue(sb, scope, "_total", metric.getCount(), COUNTER, md);
+        writeHelpLine(sb, scope, md.getName(), md, UNDERSCORE_TOTAL);
+        writeTypeAndValue(sb, scope, UNDERSCORE_TOTAL, metric.getCount(), COUNTER, md);
         writeMeterRateValues(sb, scope, metric, md);
     }
 

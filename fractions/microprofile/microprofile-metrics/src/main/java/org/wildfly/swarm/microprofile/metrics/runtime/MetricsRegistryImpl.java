@@ -92,14 +92,6 @@ public class MetricsRegistryImpl extends MetricRegistry {
     }
 
     @Override
-    public <T extends Metric> T register(String name, T metric, Metadata metadata) throws IllegalArgumentException {
-
-        Metadata newMeta = Metadata.builder(metadata).withName(name).build();
-
-        return register(newMeta, metric);
-    }
-
-    @Override
     public <T extends Metric> T register(Metadata metadata, T metric) throws IllegalArgumentException {
 
         String name = metadata.getName();

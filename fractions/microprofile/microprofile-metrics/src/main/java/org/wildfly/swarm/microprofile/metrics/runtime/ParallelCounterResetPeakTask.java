@@ -24,7 +24,7 @@ import org.wildfly.swarm.microprofile.metrics.runtime.app.ParallelCounterImpl;
 /**
  * @author hrupp
  */
-public class ParallelCounterWatermarkFiller implements Runnable {
+public class ParallelCounterResetPeakTask implements Runnable {
 
   @Override
   public void run() {
@@ -36,7 +36,7 @@ public class ParallelCounterWatermarkFiller implements Runnable {
       Collection<ParallelCounter> pcs = registry.getParallelCounters().values();
       for (ParallelCounter pc : pcs) {
         ParallelCounterImpl pci = (ParallelCounterImpl) pc;
-        pci.moveItemsAndReset();
+        pci.resetRecentPeak();
       }
     }
   }

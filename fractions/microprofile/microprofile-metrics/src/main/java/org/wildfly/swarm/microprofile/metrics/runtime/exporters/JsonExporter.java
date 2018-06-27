@@ -95,17 +95,9 @@ public class JsonExporter implements Exporter {
                     sb.append(SPACE2).append('"').append(key).append('"').append(SPACED_COLON).append(val);
                     sb.append(COMMA_LF);
                     ParallelCounter parallelCounter = (ParallelCounter) value;
-                    val = parallelCounter.getMax();
-                    sb.append(SPACE2).append('"').append(key).append(".max").append('"').append(SPACED_COLON)
-                        .append(val).append(COMMA_LF);
-                    for (int i = 0;i < 10;i++) {
-                        sb.append(SPACE2).append('"').append(key).append(".max.").append(i).append('"').append
-                            (SPACED_COLON)
-                            .append(parallelCounter.maxLast10Minutes()[i]);
-                        if (i < 9) {
-                            sb.append(COMMA_LF);
-                        }
-                    }
+                    val = parallelCounter.getRecentPeak();
+                    sb.append(SPACE2).append('"').append(key).append(".recentPeak").append('"').append(SPACED_COLON)
+                        .append(val).append(LF);
                     break;
                 case METERED:
                     MeterImpl meter = (MeterImpl) value;

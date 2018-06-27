@@ -51,20 +51,27 @@ public class MetricsService implements Service<MetricsService> {
     private final InjectedValue<ServerEnvironment> serverEnvironmentValue = new InjectedValue<ServerEnvironment>();
     private final InjectedValue<ModelController> modelControllerValue = new InjectedValue<ModelController>();
     private ScheduledExecutorService executorService;
+    private Config config;
 
 
-    @Override
+  @Override
     public void start(StartContext context) throws StartException {
+        config = ConfigProvider.getConfig();
         initBaseAndVendorConfiguration();
-        startParallelCounterWatermarkFiller();
+        int intervalSeconds = getPCResetInterval();
+        startParallelCounterWatermarkFiller(intervalSeconds);
 
         LOG.info("MicroProfile-Metrics started");
     }
 
 
-    private void startParallelCounterWatermarkFiller() {
+
+  private void startParallelCounterWatermarkFiller(int intervalSeconds) {
         executorService = new ScheduledThreadPoolExecutor(1);
-        executorService.scheduleAtFixedRate(new ParallelCounterWatermarkFiller(), 1, 1, TimeUnit.MINUTES);
+        executorService.scheduleAtFixedRate(new ParallelCounterResetPeakTask(),
+                                            intervalSeconds,
+                                            intervalSeconds,
+                                            TimeUnit.SECONDS);
     }
 
 
@@ -77,7 +84,6 @@ public class MetricsService implements Service<MetricsService> {
 
         if (is != null) {
 
-            Config config = ConfigProvider.getConfig();
 
             Optional<String> globalTagsFromConfig = config.getOptionalValue("mp.metrics.tags", String.class);
             if (!globalTagsFromConfig.isPresent()) {
@@ -106,6 +112,17 @@ public class MetricsService implements Service<MetricsService> {
             throw new IllegalStateException("Was not able to find the mapping file 'mapping.yml'");
         }
     }
+
+    private int getPCResetInterval() {
+      Optional<Integer> optVal = config.getOptionalValue("mp.metrics.high_water__mark_interval_seconds",Integer.class);
+      int interval = optVal.orElse(60);
+      if (interval < 30 || interval > 600) {
+        throw new IllegalArgumentException("Interval for high_water_mark_reset must be between 30 and 600 seconds, " +
+                                               "but was " + interval);
+      }
+      return interval;
+    }
+
 
     private Metric getType(ExtendedMetadata em) {
         Metric out;
